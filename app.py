@@ -56,7 +56,7 @@ mapping = {'advantasure-prod': 'Advantasure (Env 1)',
  'longituderx-prod': 'LongitudeRx (Env 2)',
  'mcs-prod': 'Medical Card System',
  'mercyoneapollo-prod': 'MercyOne',
- 'mercypit-prod': 'Trinity Health Pittsburgh',
+ 'mercypit-prod': 'Pittsburgh Mercy',
  'mgm-prod': 'Mgm Resorts',
  'mhcn-prod': 'Chi Memorial',
  'nemoursapollo-prod': 'Nemours Childrens Health System',
@@ -148,4 +148,5 @@ if uploaded_zip:
     except Exception as e:
         st.error("❌ Error processing ZIP file")
         st.exception(e)
+
 
