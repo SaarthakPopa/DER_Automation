@@ -5,9 +5,6 @@ import pandas as pd
 # -------------------------------------------------
 # Customer → Health System Name mapping
 # -------------------------------------------------
-# -------------------------------------------------
-# Customer → Health System Name mapping
-# -------------------------------------------------
 mapping = {'advantasure-prod': 'Advantasure (Env 1)',
  'advantasureapollo-prod': 'Advantasure (Env 2)',
  'adventist-prod': 'Adventist Healthcare',
@@ -86,7 +83,7 @@ mapping = {'advantasure-prod': 'Advantasure (Env 1)',
  'walgreens-prod': 'Walgreens'}
 
 # -------------------------------------------------
-# Load ZIP
+# Load ZIP → list of DataFrames
 # -------------------------------------------------
 def load_zip(uploaded_zip):
     dfs = []
@@ -95,41 +92,31 @@ def load_zip(uploaded_zip):
             if file.lower().endswith(".csv"):
                 with z.open(file) as f:
                     df = pd.read_csv(f)
-                    df["_source_file"] = file.replace(".csv", "")
                     dfs.append(df)
     return dfs
 
 # -------------------------------------------------
-# Row-level horizontal concat (CORRECT)
+# Row-level horizontal concat (NO aggregation)
 # -------------------------------------------------
 def process_row_level_horizontal(dfs):
     merged_df = None
 
-    for df in dfs:
+    for i, df in enumerate(dfs, start=1):
         if "customer" not in df.columns:
-            raise ValueError("customer column is mandatory")
+            raise ValueError("❌ 'customer' column is mandatory")
 
-        source = df["_source_file"].iloc[0]
+        rename_map = {}
+        for col in df.columns:
+            if col != "customer":
+                rename_map[col] = f"{col}_{i}"
 
-        # Rename all columns except customer
-        rename_map = {
-            col: f"{col}_{source}"
-            for col in df.columns
-            if col not in ["customer", "_source_file"]
-        }
         df = df.rename(columns=rename_map)
-        df = df.drop(columns=["_source_file"])
 
         if merged_df is None:
             merged_df = df
         else:
-            merged_df = merged_df.merge(
-                df,
-                on="customer",
-                how="outer"
-            )
+            merged_df = merged_df.merge(df, on="customer", how="outer")
 
-    # Add Health System Name once
     merged_df.insert(
         1,
         "Health System Name",
@@ -137,6 +124,20 @@ def process_row_level_horizontal(dfs):
     )
 
     return merged_df
+
+# -------------------------------------------------
+# Aggregated mode (existing behavior)
+# -------------------------------------------------
+def process_aggregated(dfs):
+    df = pd.concat(dfs, ignore_index=True)
+    numeric_cols = df.select_dtypes(include="number").columns
+    final_df = df.groupby("customer", as_index=False)[numeric_cols].sum()
+    final_df.insert(
+        1,
+        "Health System Name",
+        final_df["customer"].map(mapping).fillna("")
+    )
+    return final_df
 
 # -------------------------------------------------
 # Streamlit UI
@@ -163,26 +164,59 @@ if uploaded_zip:
             dfs = load_zip(uploaded_zip)
 
             if mode == "Aggregated (Customer level)":
-                base_df = pd.concat(dfs, ignore_index=True)
-                numeric_cols = base_df.select_dtypes(include="number").columns
-                final_df = base_df.groupby("customer", as_index=False)[numeric_cols].sum()
-                final_df.insert(
-                    1,
-                    "Health System Name",
-                    final_df["customer"].map(mapping).fillna("")
-                )
+                final_df = process_aggregated(dfs)
             else:
                 final_df = process_row_level_horizontal(dfs)
 
         st.success("Processing complete ✅")
 
-        st.subheader("📊 Preview Result")
+        # ---------------- Base Preview ----------------
+        st.subheader("📊 Base Output Preview")
         st.dataframe(final_df, use_container_width=True)
 
-        csv_bytes = final_df.to_csv(index=False).encode("utf-8")
+        # ---------------- Pivot Builder ----------------
+        if mode == "Row-level (Horizontal concat on customer)":
+            st.divider()
+            st.subheader("🔄 Pivot Builder")
+
+            all_cols = final_df.columns.tolist()
+            numeric_cols = final_df.select_dtypes(include="number").columns.tolist()
+
+            rows = st.multiselect("Rows", all_cols)
+            columns = st.multiselect("Columns", all_cols)
+            values = st.multiselect("Values (numeric only)", numeric_cols)
+
+            agg_func = st.selectbox(
+                "Aggregation Function",
+                ["sum", "mean", "count", "min", "max"]
+            )
+
+            if rows and values:
+                pivot_df = pd.pivot_table(
+                    final_df,
+                    index=rows,
+                    columns=columns if columns else None,
+                    values=values,
+                    aggfunc=agg_func,
+                    fill_value=0
+                ).reset_index()
+
+                st.subheader("📐 Pivot Preview")
+                st.dataframe(pivot_df, use_container_width=True)
+
+                pivot_csv = pivot_df.to_csv(index=False).encode("utf-8")
+                st.download_button(
+                    "⬇️ Download Pivot CSV",
+                    pivot_csv,
+                    file_name="pivot_output.csv",
+                    mime="text/csv"
+                )
+
+        # ---------------- Download Base ----------------
+        base_csv = final_df.to_csv(index=False).encode("utf-8")
         st.download_button(
-            "⬇️ Download Final CSV",
-            csv_bytes,
+            "⬇️ Download Base Output CSV",
+            base_csv,
             file_name="final.csv",
             mime="text/csv"
         )
