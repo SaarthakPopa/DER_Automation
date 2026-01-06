@@ -111,12 +111,26 @@ def process_aggregated(df):
 # Row-Level Mode (NO assumptions)
 # -------------------------------------------------
 def process_row_level(df):
-    df.insert(
+    # Identify numeric vs dimension columns
+    numeric_cols = df.select_dtypes(include="number").columns.tolist()
+    dimension_cols = [c for c in df.columns if c not in numeric_cols]
+
+    # Group by all dimension columns (customer + others)
+    final_df = (
+        df
+        .groupby(dimension_cols, as_index=False)[numeric_cols]
+        .sum()
+    )
+
+    # Add Health System Name after consolidation
+    final_df.insert(
         1,
         "Health System Name",
-        df["customer"].map(mapping).fillna("")
+        final_df["customer"].map(mapping).fillna("")
     )
-    return df
+
+    return final_df
+
 
 # -------------------------------------------------
 # Streamlit UI
@@ -216,3 +230,4 @@ if uploaded_zip:
     except Exception as e:
         st.error("❌ Error processing ZIP")
         st.exception(e)
+
