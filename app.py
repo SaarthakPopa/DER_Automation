@@ -1,10 +1,8 @@
 import streamlit as st
-import zipfile
 import pandas as pd
 
 # -------------------------------------------------
 # Customer → Health System Name mapping
-# -------------------------------------------------
 mapping = {'advantasure-prod': 'Advantasure (Env 1)',
  'advantasureapollo-prod': 'Advantasure (Env 2)',
  'adventist-prod': 'Adventist Healthcare',
@@ -83,144 +81,147 @@ mapping = {'advantasure-prod': 'Advantasure (Env 1)',
  'walgreens-prod': 'Walgreens'}
 
 # -------------------------------------------------
-# Load ZIP → list of DataFrames
+# Helper: add Health System Name
 # -------------------------------------------------
-def load_zip(uploaded_zip):
-    dfs = []
-    with zipfile.ZipFile(uploaded_zip) as z:
-        for file in z.namelist():
-            if file.lower().endswith(".csv"):
-                with z.open(file) as f:
-                    df = pd.read_csv(f)
-                    dfs.append(df)
-    return dfs
-
-# -------------------------------------------------
-# Row-level horizontal concat (NO aggregation)
-# -------------------------------------------------
-def process_row_level_horizontal(dfs):
-    merged_df = None
-
-    for i, df in enumerate(dfs, start=1):
-        if "customer" not in df.columns:
-            raise ValueError("❌ 'customer' column is mandatory")
-
-        rename_map = {}
-        for col in df.columns:
-            if col != "customer":
-                rename_map[col] = f"{col}_{i}"
-
-        df = df.rename(columns=rename_map)
-
-        if merged_df is None:
-            merged_df = df
-        else:
-            merged_df = merged_df.merge(df, on="customer", how="outer")
-
-    merged_df.insert(
+def add_health_system(df):
+    if "customer" not in df.columns:
+        raise ValueError("❌ 'customer' column is mandatory")
+    df = df.copy()
+    df.insert(
         1,
         "Health System Name",
-        merged_df["customer"].map(mapping).fillna("")
+        df["customer"].map(mapping).fillna("")
     )
-
-    return merged_df
+    return df
 
 # -------------------------------------------------
-# Aggregated mode (existing behavior)
+# Aggregated Mode
 # -------------------------------------------------
-def process_aggregated(dfs):
+def process_aggregated(files):
+    dfs = [pd.read_csv(f) for f in files]
     df = pd.concat(dfs, ignore_index=True)
+
     numeric_cols = df.select_dtypes(include="number").columns
     final_df = df.groupby("customer", as_index=False)[numeric_cols].sum()
-    final_df.insert(
-        1,
-        "Health System Name",
-        final_df["customer"].map(mapping).fillna("")
-    )
+    final_df = add_health_system(final_df)
     return final_df
 
 # -------------------------------------------------
 # Streamlit UI
 # -------------------------------------------------
-st.set_page_config(page_title="DER ZIP Processor", layout="wide")
-st.title("📦 DER ZIP Processor")
+st.set_page_config(page_title="DER CSV Processor", layout="wide")
+st.title("📦 DER CSV Processor")
 
 mode = st.selectbox(
     "Select processing mode",
     [
         "Aggregated (Customer level)",
-        "Row-level (Horizontal concat on customer)"
+        "Use this for more than 2 columns present per csv"
     ]
 )
 
-uploaded_zip = st.file_uploader(
-    "Upload ZIP file containing CSVs",
-    type=["zip"]
+uploaded_files = st.file_uploader(
+    "Upload CSV files (multiple allowed)",
+    type=["csv"],
+    accept_multiple_files=True
 )
 
-if uploaded_zip:
+if uploaded_files:
     try:
-        with st.spinner("Processing ZIP file..."):
-            dfs = load_zip(uploaded_zip)
+        # -------------------------------------------------
+        # AGGREGATED MODE
+        # -------------------------------------------------
+        if mode == "Aggregated (Customer level)":
+            with st.spinner("Processing files..."):
+                final_df = process_aggregated(uploaded_files)
 
-            if mode == "Aggregated (Customer level)":
-                final_df = process_aggregated(dfs)
-            else:
-                final_df = process_row_level_horizontal(dfs)
+            st.success("Processing complete ✅")
+            st.subheader("📊 Preview Result")
+            st.dataframe(final_df, use_container_width=True)
 
-        st.success("Processing complete ✅")
-
-        # ---------------- Base Preview ----------------
-        st.subheader("📊 Base Output Preview")
-        st.dataframe(final_df, use_container_width=True)
-
-        # ---------------- Pivot Builder ----------------
-        if mode == "Row-level (Horizontal concat on customer)":
-            st.divider()
-            st.subheader("🔄 Pivot Builder")
-
-            all_cols = final_df.columns.tolist()
-            numeric_cols = final_df.select_dtypes(include="number").columns.tolist()
-
-            rows = st.multiselect("Rows", all_cols)
-            columns = st.multiselect("Columns", all_cols)
-            values = st.multiselect("Values (numeric only)", numeric_cols)
-
-            agg_func = st.selectbox(
-                "Aggregation Function",
-                ["sum", "mean", "count", "min", "max"]
+            csv_bytes = final_df.to_csv(index=False).encode("utf-8")
+            st.download_button(
+                "⬇️ Download Final CSV",
+                csv_bytes,
+                file_name="final.csv",
+                mime="text/csv"
             )
 
-            if rows and values:
-                pivot_df = pd.pivot_table(
-                    final_df,
-                    index=rows,
-                    columns=columns if columns else None,
-                    values=values,
-                    aggfunc=agg_func,
-                    fill_value=0
-                ).reset_index()
+        # -------------------------------------------------
+        # MULTI-COLUMN / ROW-LEVEL MODE
+        # -------------------------------------------------
+        else:
+            st.success("Files loaded ✅")
 
-                st.subheader("📐 Pivot Preview")
-                st.dataframe(pivot_df, use_container_width=True)
+            for idx, file in enumerate(uploaded_files, start=1):
+                st.divider()
+                st.subheader(f"📄 File {idx}: {file.name}")
 
-                pivot_csv = pivot_df.to_csv(index=False).encode("utf-8")
+                df = pd.read_csv(file)
+                df = add_health_system(df)
+
+                # -------- Base Preview --------
+                st.markdown("**Base Preview**")
+                st.dataframe(df, use_container_width=True)
+
+                # -------- Pivot Builder --------
+                st.markdown("### 🔄 Pivot Builder")
+
+                all_cols = df.columns.tolist()
+                numeric_cols = df.select_dtypes(include="number").columns.tolist()
+
+                rows = st.multiselect(
+                    "Rows",
+                    all_cols,
+                    key=f"rows_{idx}"
+                )
+                columns = st.multiselect(
+                    "Columns",
+                    all_cols,
+                    key=f"cols_{idx}"
+                )
+                values = st.multiselect(
+                    "Values (numeric only)",
+                    numeric_cols,
+                    key=f"vals_{idx}"
+                )
+
+                agg_func = st.selectbox(
+                    "Aggregation Function",
+                    ["sum", "mean", "count", "min", "max"],
+                    key=f"agg_{idx}"
+                )
+
+                if rows and values:
+                    pivot_df = pd.pivot_table(
+                        df,
+                        index=rows,
+                        columns=columns if columns else None,
+                        values=values,
+                        aggfunc=agg_func,
+                        fill_value=0
+                    ).reset_index()
+
+                    st.markdown("**Pivot Preview**")
+                    st.dataframe(pivot_df, use_container_width=True)
+
+                    pivot_csv = pivot_df.to_csv(index=False).encode("utf-8")
+                    st.download_button(
+                        f"⬇️ Download Pivot CSV (File {idx})",
+                        pivot_csv,
+                        file_name=f"pivot_{file.name}",
+                        mime="text/csv"
+                    )
+
+                # -------- Download Base --------
+                base_csv = df.to_csv(index=False).encode("utf-8")
                 st.download_button(
-                    "⬇️ Download Pivot CSV",
-                    pivot_csv,
-                    file_name="pivot_output.csv",
+                    f"⬇️ Download Base CSV (File {idx})",
+                    base_csv,
+                    file_name=file.name,
                     mime="text/csv"
                 )
 
-        # ---------------- Download Base ----------------
-        base_csv = final_df.to_csv(index=False).encode("utf-8")
-        st.download_button(
-            "⬇️ Download Base Output CSV",
-            base_csv,
-            file_name="final.csv",
-            mime="text/csv"
-        )
-
     except Exception as e:
-        st.error("❌ Error processing ZIP")
+        st.error("❌ Error processing files")
         st.exception(e)
