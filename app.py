@@ -1,193 +1,218 @@
 import streamlit as st
 import zipfile
 import pandas as pd
-import io
 
 # -------------------------------------------------
-# Customer → Health System Name mapping (FINAL)
+# Customer → Health System Name mapping
 # -------------------------------------------------
-mapping = {
-    'advantasure-prod': 'Advantasure (Env 1)',
-    'advantasureapollo-prod': 'Advantasure (Env 2)',
-    'adventist-prod': 'Adventist Healthcare',
-    'alameda-prod': 'Alameda County',
-    'alo-prod': 'Alo solutions',
-    'arkansashealth-prod': 'Chi St Vincent',
-    'ascension-preprod': 'Ascension Health (Env 1)',
-    'ascension-prod': 'Ascension Health (Env 2)',
-    'atlantichealth-prod': 'Atlantic Health',
-    'bannerapollo-prod': 'Banner Health',
-    'bhsf-prod': 'Baptist Health South Florida',
-    'bsim-prod': 'BSIM Healthcare services',
-    'careabout-prod': 'CareAbout Health',
-    'ccmcn-prod': 'Colorado Community Managed Care Network',
-    'ccnc-prod': 'Community Care of North Carolina',
-    'chessapollo-prod': 'CHESS Health Solutions',
-    'childrenshealthapollo-prod': 'Children Health Alliance',
-    'christianacare-prod': 'Christiana Care Health System',
-    'cmhcapollo-prod': 'Central Maine Healthcare',
-    'cmicsapollo-prod': 'Childrens Mercy Hospital And Clinics',
-    'coa-prod': 'Colorado Access',
-    'concare-prod': 'ConcertoCare',
-    'connecticutchildrens-prod': "Connecticut Children's Health",
-    'cshnational-new-prod': 'CSH National (Env 1)',
-    'cshnational-prod': 'CSH National (Env 2)',
-    'curana-prod': 'Curana Health',
-    'dhmsapollo-prod': 'Dignity Health',
-    'dock-cmicsapollo-prod': 'Childrens Mercy Hospital And Clinics (Nexus)',
-    'dock-embrightapollo-prod': 'Embright (Nexus)',
-    'dock-nemoursapollo-prod': 'Nemours Childrens Health System (Nexus)',
-    'dock-risehealth-prod': 'Rise Health (Nexus)',
-    'dock-tccn-prod': 'Childrens Healthcare Of Atlanta (Nexus)',
-    'embrightapollo-prod': 'Embright',
-    'evergreen-prod': 'Evergreen Nephrology',
-    'falliance-prod': 'Franciscan Health',
-    'flmedicaid-prod': 'Florida Medicaid',
-    'franciscan-staging': 'Franciscan Health (staging)',
-    'govcloud-prod': 'govcloud-prod',
-    'gravitydemo-prod': 'Gravity',
-    'impacthealth-prod': 'Impact Primary Care Network/Impact Health',
-    'innohumana-prod': 'Longevity Health Plan(LHP) - HUMANA',
-    'innolhp-prod': 'Longevity Health Plan(LHP) - Core)',
-    'innovaetna-prod': 'Longevity Health Plan(LHP) - Aetna',
-    'integration-preprod': 'internal env',
-    'integris-prod': 'integris-prod',
-    'intjuly-prod': 'internal account',
-    'longitudegvt-prod': 'LongitudeRx (Env 1)',
-    'longituderx-prod': 'LongitudeRx (Env 2)',
-    'mcs-prod': 'Medical Card System',
-    'mercyoneapollo-prod': 'MercyOne',
-    'mercypit-prod': 'Pittsburgh Mercy',
-    'mgm-prod': 'Mgm Resorts',
-    'mhcn-prod': 'Chi Memorial',
-    'nemoursapollo-prod': 'Nemours Childrens Health System',
-    'nwm-prod': 'Northwestern Medicine',
-    'orlandoapollo-prod': 'Orlando Health',
-    'pedassoc-prod': 'Pediatric Associates',
-    'phlc-prod': 'Population Health Learning Center',
-    'php-prod': 'P3 Health Partners',
-    'pophealthcare-prod': 'Emcara / POP Health / Guidewell Mutual Holding Company',
-    'prismah-prod': 'Prisma Health',
-    'pswapollo-prod': 'Physicians Of Southwest Washington',
-    'risehealth-prod': 'Rise Health',
-    'sacramento-prod': 'Sacramento SHIE (Env 1)',
-    'sacramentoshie-prod': 'Sacramento SHIE (Env 2)',
-    'sentara-prod': 'Sentara Health',
-    'smch-prod': 'San Mateo County Health',
-    'stewardapollo-prod': 'Steward Health Care System',
-    'strivehealth-prod': 'Strive Health',
-    'tccn-prod': 'Childrens Healthcare Of Atlanta',
-    'thnapollo-prod': 'Cone Health',
-    'trinity-prod': 'Trinity Health National',
-    'uninet-prod': 'CHI Health Partners',
-    'usrc-prod': 'US RenalCare',
-    'walgreens-prod': 'Walgreens'
-}
+mapping = {'advantasure-prod': 'Advantasure (Env 1)',
+ 'advantasureapollo-prod': 'Advantasure (Env 2)',
+ 'adventist-prod': 'Adventist Healthcare',
+ 'alameda-prod': 'Alameda County',
+ 'alo-prod': 'Alo solutions',
+ 'arkansashealth-prod': 'Chi St Vincent',
+ 'ascension-preprod': 'Ascension Health (Env 1)',
+ 'ascension-prod': 'Ascension Health (Env 2)',
+ 'atlantichealth-prod': 'Atlantic Health',
+ 'bannerapollo-prod': 'Banner Health',
+ 'bhsf-prod': 'Baptist Health South Florida',
+ 'bsim-prod': 'BSIM Healthcare services',
+ 'careabout-prod': 'CareAbout Health',
+ 'ccmcn-prod': 'Colorado Community Managed Care Network',
+ 'ccnc-prod': 'Community Care of North Carolina',
+ 'chessapollo-prod': 'CHESS Health Solutions',
+ 'childrenshealthapollo-prod': 'Children Health Alliance',
+ 'christianacare-prod': 'Christiana Care Health System',
+ 'cmhcapollo-prod': 'Central Maine Healthcare',
+ 'cmicsapollo-prod': 'Childrens Mercy Hospital And Clinics',
+ 'coa-prod': 'Colorado Access',
+ 'concare-prod': 'ConcertoCare',
+ 'connecticutchildrens-prod': "Connecticut Children's Health",
+ 'cshnational-new-prod': 'CSH National (Env 1)',
+ 'cshnational-prod': 'CSH National (Env 2)',
+ 'curana-prod': 'Curana Health',
+ 'dhmsapollo-prod': 'Dignity Health',
+ 'dock-cmicsapollo-prod': 'Childrens Mercy Hospital And Clinics (Nexus)',
+ 'dock-embrightapollo-prod': 'Embright (Nexus)',
+ 'dock-nemoursapollo-prod': 'Nemours Childrens Health System (Nexus)',
+ 'dock-risehealth-prod': 'Rise Health (Nexus)',
+ 'dock-tccn-prod': 'Childrens Healthcare Of Atlanta (Nexus)',
+ 'embrightapollo-prod': 'Embright',
+ 'evergreen-prod': 'Evergreen Nephrology',
+ 'falliance-prod': 'Franciscan Health',
+ 'flmedicaid-prod': 'Florida Medicaid',
+ 'franciscan-staging': 'Franciscan Health (staging)',
+ 'govcloud-prod': 'govcloud-prod',
+ 'gravitydemo-prod': 'Gravity',
+ 'impacthealth-prod': 'Impact Primary Care Network/Impact Health',
+ 'innohumana-prod': 'Longevity Health Plan(LHP) - HUMANA',
+ 'innolhp-prod': 'Longevity Health Plan(LHP) - Core)',
+ 'innovaetna-prod': 'Longevity Health Plan(LHP) - Aetna',
+ 'integration-preprod': 'internal env',
+ 'integris-prod': 'integris-prod',
+ 'intjuly-prod': 'internal account',
+ 'longitudegvt-prod': 'LongitudeRx (Env 1)',
+ 'longituderx-prod': 'LongitudeRx (Env 2)',
+ 'mcs-prod': 'Medical Card System',
+ 'mercyoneapollo-prod': 'MercyOne',
+ 'mercypit-prod': 'Trinity Health Pittsburgh',
+ 'mgm-prod': 'Mgm Resorts',
+ 'mhcn-prod': 'Chi Memorial',
+ 'nemoursapollo-prod': 'Nemours Childrens Health System',
+ 'novanthealth-prod':'Novant Health',
+ 'nwm-prod': 'Northwestern Medicine',
+ 'orlandoapollo-prod': 'Orlando Health',
+ 'pedassoc-prod': 'Pediatric Associates',
+ 'phlc-prod': 'Population Health Learning Center',
+ 'php-prod': 'P3 Health Partners',
+ 'pophealthcare-prod': 'Emcara / POP Health / Guidewell Mutual Holding Company',
+ 'prismah-prod': 'Prisma Health',
+ 'pswapollo-prod': 'Physicians Of Southwest Washington',
+ 'risehealth-prod': 'Rise Health',
+ 'sacramento-prod': 'Sacramento SHIE (Env 1)',
+ 'sacramentoshie-prod': 'Sacramento SHIE (Env 2)',
+ 'sentara-prod': 'Sentara Health',
+ 'smch-prod': 'San Mateo County Health ',
+ 'stewardapollo-prod': 'Steward Health Care System',
+ 'strivehealth-prod': 'Strive Health',
+ 'tccn-prod': 'Childrens Healthcare Of Atlanta',
+ 'thnapollo-prod': 'Cone Health',
+ 'trinity-prod': 'Trinity Health National',
+ 'uninet-prod': 'CHI Health Partners',
+ 'usrc-prod': 'US RenalCare',
+ 'walgreens-prod': 'Walgreens'}
 
 # -------------------------------------------------
-# EXISTING aggregated logic (UNCHANGED)
+# ZIP → Combined DF (generic)
 # -------------------------------------------------
-def process_zip_aggregated(uploaded_zip):
+def load_zip(uploaded_zip):
     dfs = []
-
     with zipfile.ZipFile(uploaded_zip) as z:
-        for file in z.namelist():
-            if file.lower().endswith(".csv"):
-                with z.open(file) as f:
-                    dfs.append(pd.read_csv(f))
+        for f in z.namelist():
+            if f.lower().endswith(".csv"):
+                with z.open(f) as file:
+                    dfs.append(pd.read_csv(file))
+    return pd.concat(dfs, ignore_index=True)
 
-    combined_df = pd.concat(dfs, ignore_index=True)
-
-    metric_cols = combined_df.columns.drop("customer")
-
-    final_df = (
-        combined_df
-        .groupby("customer", as_index=False)[metric_cols]
-        .sum()
-    )
-
+# -------------------------------------------------
+# Aggregated Mode (existing behavior)
+# -------------------------------------------------
+def process_aggregated(df):
+    metric_cols = df.select_dtypes(include="number").columns
+    final_df = df.groupby("customer", as_index=False)[metric_cols].sum()
     final_df.insert(
         1,
         "Health System Name",
         final_df["customer"].map(mapping).fillna("")
     )
-
     return final_df
 
 # -------------------------------------------------
-# NEW row-level logic (NO aggregation)
+# Row-Level Mode (NO assumptions)
 # -------------------------------------------------
-def process_zip_row_level(uploaded_zip):
-    dfs = []
-
-    with zipfile.ZipFile(uploaded_zip) as z:
-        for file in z.namelist():
-            if file.lower().endswith(".csv"):
-                with z.open(file) as f:
-                    dfs.append(pd.read_csv(f))
-
-    final_df = pd.concat(dfs, ignore_index=True)
-
-    final_df.insert(
+def process_row_level(df):
+    df.insert(
         1,
         "Health System Name",
-        final_df["customer"].map(mapping).fillna("")
+        df["customer"].map(mapping).fillna("")
     )
-
-    final_df = final_df[
-        [
-            "customer",
-            "Health System Name",
-            "atrdt",
-            "gn",
-            "total_attributed_lives"
-        ]
-    ]
-
-    return final_df
+    return df
 
 # -------------------------------------------------
 # Streamlit UI
 # -------------------------------------------------
 st.set_page_config(page_title="DER ZIP Processor", layout="wide")
-
 st.title("📦 DER ZIP Processor")
 
 mode = st.selectbox(
     "Select processing mode",
     [
-        "Aggregated (Existing)",
-        "Row-level (Customer + Date + Gender)"
+        "Aggregated (Customer level)",
+        "Row-level (No aggregation)"
     ]
 )
 
 uploaded_zip = st.file_uploader(
-    "Drag & drop or upload ZIP file",
+    "Upload ZIP file containing CSVs",
     type=["zip"]
 )
 
 if uploaded_zip:
     try:
         with st.spinner("Processing ZIP file..."):
-            if mode == "Aggregated (Existing)":
-                final_df = process_zip_aggregated(uploaded_zip)
+            base_df = load_zip(uploaded_zip)
+
+            if "customer" not in base_df.columns:
+                st.error("❌ 'customer' column is mandatory in input files")
+                st.stop()
+
+            if mode == "Aggregated (Customer level)":
+                final_df = process_aggregated(base_df)
             else:
-                final_df = process_zip_row_level(uploaded_zip)
+                final_df = process_row_level(base_df)
 
         st.success("Processing complete ✅")
 
-        st.subheader("📊 Preview Result")
+        # -------------------------------------------------
+        # Base Output Preview
+        # -------------------------------------------------
+        st.subheader("📊 Base Output Preview")
         st.dataframe(final_df, use_container_width=True)
 
-        csv_bytes = final_df.to_csv(index=False).encode("utf-8")
+        # -------------------------------------------------
+        # Pivot Builder (Row-level ONLY)
+        # -------------------------------------------------
+        if mode == "Row-level (No aggregation)":
+            st.divider()
+            st.subheader("🔄 Pivot Builder")
 
+            all_cols = final_df.columns.tolist()
+            numeric_cols = final_df.select_dtypes(include="number").columns.tolist()
+
+            rows = st.multiselect("Rows", all_cols)
+            columns = st.multiselect("Columns", all_cols)
+            values = st.multiselect(
+                "Values (numeric only)",
+                numeric_cols
+            )
+
+            agg_func = st.selectbox(
+                "Aggregation Function",
+                ["sum", "mean", "count", "min", "max"]
+            )
+
+            if rows and values:
+                pivot_df = pd.pivot_table(
+                    final_df,
+                    index=rows,
+                    columns=columns if columns else None,
+                    values=values,
+                    aggfunc=agg_func,
+                    fill_value=0
+                ).reset_index()
+
+                st.subheader("📐 Pivot Preview")
+                st.dataframe(pivot_df, use_container_width=True)
+
+                pivot_csv = pivot_df.to_csv(index=False).encode("utf-8")
+                st.download_button(
+                    "⬇️ Download Pivot CSV",
+                    pivot_csv,
+                    file_name="pivot_output.csv",
+                    mime="text/csv"
+                )
+
+        # -------------------------------------------------
+        # Download Base Output
+        # -------------------------------------------------
+        base_csv = final_df.to_csv(index=False).encode("utf-8")
         st.download_button(
-            label="⬇️ Download Final CSV",
-            data=csv_bytes,
+            "⬇️ Download Base Output CSV",
+            base_csv,
             file_name="final.csv",
             mime="text/csv"
         )
 
     except Exception as e:
-        st.error("❌ Error processing ZIP file")
+        st.error("❌ Error processing ZIP")
         st.exception(e)
